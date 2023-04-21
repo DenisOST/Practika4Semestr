@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html>
+
+<title>Остроухов</title>
+
+<h2>Модель развития одноклеточных организмов</h2>
+<style type="text/css">
+   TD.leftcol {
+    width: 1020px; /* Ширина левой колонки с рисунком */
+    vertical-align: top; /* Выравнивание по верхнему краю */
+   }
+  </style>
+  <body> 
+  	<table width="100%" cellspacing="0" cellpadding="0">
+   <tr> 
+    <td class="leftcol"><canvas id="canvas" width="1000px" height="800px" style="border: 3px solid #000;"></canvas></td>
+    
+    <td valign="top">
+    <h1><time>Прошло: 0 лет.</time></h1>
+    <div style="margin-top: 30px;"> </div>
+	<div class="row">
+	
+		<div style="margin-top: 30px;"></div>
+		<button id="start">СТАРТ</button>
+		<div style="margin-top: 30px;"></div>
+		
+		<button id="speed1">X1</button>
+		<button id="speed2">X2</button>
+		<button id="speed5">X5</button>
+
+	</div>
+	</div></td>
+   </tr>
+  </table>
+ 
+ </body>
+
+<script type="text/javascript">
+	
+	var canvas, ctx, W, H;
+	
+	var populationLimit = 0;
+
+	var populationCount = 40;
+	var populationCountMeat = 100;
+	var populationCountGrass = 100;
+	
+	var population = [];
+	var populationMeat = [];
+	var populationGrass = [];
+	
+	var launch = 1;
+	var on_off = 1;
+	var sec = 0;
+	var timerSpeed = 1;
+	var h1 = document.getElementsByTagName('h1')[0];
+	
+	//КНОПКИ
+	var start = document.getElementById('start');
+	var speed1 = document.getElementById('speed1');
+	var speed2 = document.getElementById('speed2');
+	var speed5 = document.getElementById('speed5');
+	
+	//Функция кнопки СТАРТ
+	start.onclick = function(){
+		populationLimit = 0;
+		on_off = 1;
+		sec = 0;
+		timerSpeed = 1;
+		h1.textContent = 'Прошло: ' + sec + ' лет';
+		
+		window.cancelAnimationFrame(null);
+		deletePopulation();
+		
+		new Cell().initPopulation();
+		new Meat().initPopulation();
+		new Grass().initPopulation();
+		if (launch == 1) {
+			timer();
+			initDraw();
+		}
+		launch = 0;
+	}
+	
+	//Функция кнопки Х1
+	speed1.onclick = function(){
+		timerSpeed = 1;
+	}
+	//Функция кнопки Х2
+	speed2.onclick = function(){
+		timerSpeed = 2;
+	}
+	//Функция кнопки Х5
+	speed5.onclick = function(){
+		timerSpeed = 5;
+	}
+	
+	window.onload = init;
+
+	class Cell {
+		constructor(x,y, vx,vy, typeFood){
+			this.x = x;
+			this.y = y;
+			this.countFood = 0;
+			this.countEvolution = 0;
+			this.radius = 8;
+			this.time = 0;
+			this.reproduction = 0;
+
+			this.vx = vx;
+			this.vy = vy;
+
+			this.isCollide = false;
+			this.mass      = 1;
+			
+			this.typeFood = typeFood;
+		}
+		
+		initPopulation() {
+			for (var i=0;i<populationCount;i++) {
+				let rndX = Math.random()*W;
+				let rndY = Math.random()*H;
+
+				var xV   = parseInt(Math.random()*2);
+				var yV   = parseInt(Math.random()*2);
+
+				xV == 0 ? xV = 1 : xV = -1;
+				yV == 0 ? yV = 1 : yV = -1;
+
+				let c = new Cell(rndX, rndY, xV, yV, 0);
+
+				population.push(c);
+				populationLimit++;
+			}
+		}
+		
+		initChild(typeFood,x2,y2) {
+
+			let rnd = Math.random()*2;
+
+			let xx,yy;
+
+			if (this.x > x2 && this.x + 100 < W){
+				xx = this.x + rnd;
+				yy = this.y;
+			}
+			else{
+				xx = x2 - rnd;
+				yy = y2;
+			}
+
+			if (this.y - 100 > 0)
+				yy -= rnd;
+			else
+				yy += rnd;
+
+			var xV   = parseInt(Math.random()*2);
+			var yV   = parseInt(Math.random()*2);
+
+			xV == 0 ? xV = 1 : xV = -1;
+			yV == 0 ? yV = 1 : yV = -1;
+
+			let c = new Cell(xx, yy, xV, yV, typeFood);
+
+			population.push(c);
+			populationLimit++;
+		}
+	}
+	
+	class Meat {
+		constructor(x,y) {
+			this.x = x;
+			this.y = y;
+
+			this.radius = 3;
+
+			this.isCollide = false;
+		}
+		
+		initPopulation() {
+			for (var i=0;i<populationCountMeat;i++) {	
+				let rndX = Math.random()*W;
+				let rndY = Math.random()*H;
+
+				let m = new Meat(rndX, rndY);
+
+				populationMeat.push(m);
+			}
+		}
+	}
+	
+	class Grass {
+		constructor(x,y) {
+			this.x = x;
+			this.y = y;
+
+			this.radius = 3;
+
+			this.isCollide = false;
+		}
+		
+		initPopulation() {
+			for (var i=0;i<populationCountGrass;i++) {	
+				let rndX = Math.random()*W;
+				let rndY = Math.random()*H;
+
+				let g = new Grass(rndX, rndY);
+
+				populationGrass.push(g);
+			}
+		}
+	}
+
+	function init() {
+		canvas = document.getElementById("canvas");
+		ctx    = canvas.getContext('2d');
+		W      = canvas.width;
+		H      = canvas.height;
+	}
+	
+	//Рисование
+	function initDraw() {
+		ctx.clearRect(0,0,W,H);
+		detectCollisions();
+		DetectMeatOrGrass();
+		
+		if (!population.length){
+			alert('Популяция вымерла');
+			stop.onclick();
+		}
+		
+		for (var i=0;i<populationMeat.length;i++) {
+			var m = populationMeat[i];
+
+			ctx.beginPath();
+			ctx.arc(m.x,m.y,m.radius,0, Math.PI*2, 0);
+			ctx.closePath();
+
+			ctx.fillStyle   = 'red';
+			ctx.strokeStyle = 'black';
+			ctx.fill();
+		}
+		
+		for (var i=0;i<populationGrass.length;i++) {
+			var g = populationGrass[i];
+
+			ctx.beginPath();
+			ctx.arc(g.x,g.y,g.radius,0, Math.PI*2, 0);
+			ctx.closePath();
+
+			ctx.fillStyle   = 'green';
+			ctx.strokeStyle = 'black';
+			ctx.fill();
+		}
+		
+		for (var i=0;i<population.length;i++) {
+			var c = population[i];
+			
+			if (c.time >= 30){
+				population.splice(i,1);
+				populationLimit--;
+				i--;
+				continue;
+			}
+			
+			c.x += timerSpeed * c.vx;
+			c.y += timerSpeed * c.vy;
+
+			if ( c.x-c.radius <= 0 || c.x+c.radius >= W ) c.vx = -c.vx;
+			if ( c.y-c.radius <= 0 || c.y+c.radius >= H ) c.vy = -c.vy; 
+
+			ctx.beginPath();
+			ctx.arc(c.x,c.y,c.radius,0, Math.PI*2, 0);
+			ctx.closePath();
+
+			if (c.typeFood == 0) {
+				ctx.fillStyle   = 'white';
+				ctx.strokeStyle = 'black';
+				ctx.stroke();
+			}
+			else {
+				if (c.typeFood == 1) {
+					ctx.fillStyle   = 'DarkGreen';
+					ctx.strokeStyle = 'black';
+					ctx.fill();
+				}
+				else {
+					if (c.typeFood == 2) {
+						ctx.fillStyle   = 'FireBrick';
+						ctx.strokeStyle = 'DarkRed';
+						ctx.fill();
+					}
+					else {
+						if (c.typeFood == 3) {
+							ctx.fillStyle   = 'blue';
+							ctx.strokeStyle = 'blue';
+							ctx.fill();
+						}
+					}
+				}		
+			}
+			
+			if (c.x - c.radius - 20 > 0 && c.x + c.radius + 20 < W && c.y - c.radius - 20 > 0 && c.y + c.radius + 20 < H){
+				if (c.time >= 6 && c.time < 12)
+					c.radius = 10;
+				
+				if (c.time >= 12 && c.time < 18)
+					c.radius = 12;
+
+				if (c.time >= 18 && c.time < 24)
+					c.radius = 14;
+
+				if (c.time >= 24 && c.time < 30)
+					c.radius = 16;
+			}
+		}
+
+		if (on_off == 1)
+		window.requestAnimationFrame(initDraw);
+	}
+	
+	//Столкновение с едой
+	function DetectMeatOrGrass(){
+		var c, g, m;
+
+		for (var i=0; i < population.length; i++){
+			population[i].isCollide = false;
+		}
+		for (var i=0; i < populationGrass.length; i++){
+			populationGrass[i].isCollide = false;
+		}
+		for (var i=0; i < populationMeat.length; i++){
+			populationMeat[i].isCollide = false;
+		}
+
+		for ( var i=0;i<population.length;i++ ) {
+			c = population[i];
+			
+			for ( var j=0;j<populationGrass.length;j++ ) {
+				g = populationGrass[j];
+
+				let gdx = c.x-g.x;
+				let gdy = c.y-g.y;
+				let gdistance = Math.sqrt(gdx*gdx+gdy*gdy);
+
+				if ( gdistance < c.radius + g.radius && c.typeFood != 2) {
+					c.countFood++;
+					c.countEvolution = c.countEvolution + 0.5;
+					g.x = Math.random()*W;
+					g.y = Math.random()*H;
+					if (c.countFood == 15) {
+						if (c.countEvolution > 1) { c.typeFood = 1}
+						else {if (c.countEvolution < -1) {c.typeFood = 2}
+							else {c.typeFood = 3}
+						}
+					}
+				}
+			}
+			for ( var j=0;j<populationMeat.length;j++ ) {
+				m = populationMeat[j];
+
+				let mdx = c.x-m.x;
+				let mdy = c.y-m.y;
+				let mdistance = Math.sqrt(mdx*mdx+mdy*mdy);
+
+				if ( mdistance < c.radius + m.radius && c.typeFood != 1) {
+					c.countFood++;
+					c.countEvolution = c.countEvolution - 0.5;
+					m.x = Math.random()*W;
+					m.y = Math.random()*H;
+					if (c.countFood == 15) {
+						if (c.countEvolution > 1) { c.typeFood = 1}
+						else {if (c.countEvolution < -1) {c.typeFood = 2}
+							else {c.typeFood = 3}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	function detectCollisions() 
+	{
+		var h1, h2;
+
+		for ( var i=0;i<population.length;i++ ) {
+			population[i].isCollide = false;
+		}
+
+		for ( var i=0;i<population.length;i++ ) {
+			h1 = population[i];
+			
+			for ( var j=i+1;j<population.length;j++ ) {
+				h2 = population[j];
+
+				let dx = h1.x-h2.x;
+				let dy = h1.y-h2.y;
+				let distance = Math.sqrt(dx*dx+dy*dy);
+
+				if ( distance < h1.radius + h2.radius ) 
+				{
+					let rndChild = Math.random()*100;
+
+					if ((h1.typeFood == h2.typeFood) && (h1.time >= 6 && h1.time < 27 && h2.time >= 6 && h2.time < 27) && populationLimit < 100 && rndChild <= 100 && (h1.reproduction <= 3 && h2.reproduction <=2)){
+						h1.reproduction++;
+						h2.reproduction++;
+						h1.initChild(h2.typeFood,h2.x,h2.y);
+					}
+					
+					var coeffImp = 1.5;
+
+					h1.isCollide = true;
+					h2.isCollide = true;
+
+					let collision = {
+						x: h2.x-h1.x,
+						y: h2.y-h1.y
+					};
+
+					let collisionNormal = {
+						x: collision.x / distance,
+						y: collision.y / distance
+					};
+
+					let relV = {
+						x: h1.vx-h2.vx,
+						y: h1.vy-h2.vy
+					};
+
+					let speedV = relV.x*collisionNormal.x+relV.y*collisionNormal.y;
+
+					if ( speedV < 0 ) break;
+
+					let impulse = coeffImp*speedV / (h1.mass+h2.mass);
+
+					h1.vx -= impulse*h2.mass*collisionNormal.x;
+					h1.vy -= impulse*h2.mass*collisionNormal.y; 
+
+					h2.vx += impulse*h1.mass*collisionNormal.x;
+					h2.vy += impulse*h1.mass*collisionNormal.y;
+
+					if ( Math.abs(h1.vx) < 0.5 ) {
+						if ( h1.vx < 0 ) {
+							h1.vx = -1;
+						}
+						else {
+							h1.vx = 1;
+						}
+					}
+
+					if ( Math.abs(h1.vy) < 0.5 ) {
+						if ( h1.vy < 0 ) {
+							h1.vy = -1;
+						}
+						else {
+							h1.vy = 1;
+						}
+					}
+
+					if ( Math.abs(h2.vx) < 0.5 ) {
+						if ( h2.vx < 0 ) {
+							h2.vx = -1;
+						}
+						else {
+							h2.vx = 1;
+						}
+					}
+
+					if ( Math.abs(h2.vy) < 0.5 ) {
+						if ( h2.vy < 0 ) {
+							h2.vy = -1;
+						}
+						else {
+							h2.vy = 1;
+						}
+					}
+
+				}
+			}
+
+		} 
+
+	}
+	
+	//Тик для таймера
+	function tick(){
+    	sec+=1;
+    	h1.textContent = 'Прошло: ' + sec + ' лет';
+    	for (var i=0;i<population.length;i++) {
+    		var h = population[i];
+    		h.time ++;
+    	}
+    	timer();
+	}	
+	//Таймер
+	function timer() {
+		setTimeout(tick, 1000 / timerSpeed);
+	}
+	
+	//Удаление всех популяций
+	function deletePopulation(){
+		population.splice(0,population.length);
+		populationGrass.splice(0,populationGrass.length);
+		populationMeat.splice(0,populationMeat.length);
+	}
+	
+	//Остановка рисования
+	function stopDraw(){
+		ctx.clearRect(0,0,W,H);
+	}
+
+</script>
+</html>
